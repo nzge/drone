@@ -39,40 +39,40 @@ void MPU6050::calibrate() {
     auto [gx, gy, gz] = gyro_read();     // Replace with your gyroscope read function
 
     // Sum the errors for each axis
-    AccErrorX += ax;
-    AccErrorY += ay;
-    AccErrorZ += az;
+    AccCalibrationErrorX += ax;
+    AccCalibrationErrorY += ay;
+    AccCalibrationErrorZ += az;
 
-    GyroErrorX += gx;
-    GyroErrorY += gy;
-    GyroErrorZ += gz;
+    GyroCalibrationErrorX += gx;
+    GyroCalibrationErrorY += gy;
+    GyroCalibrationErrorZ += gz;
     
     delay(1); // Small delay between readings
   }
 
   // Calculate average errors
-  AccErrorX /= numSamples;
-  AccErrorY /= numSamples;
-  AccErrorZ /= numSamples;
-  GyroErrorX /= numSamples;
-  GyroErrorY /= numSamples;
-  GyroErrorZ /= numSamples;
+  AccCalibrationErrorX /= numSamples;
+  AccCalibrationErrorY /= numSamples;
+  AccCalibrationErrorZ /= numSamples;
+  GyroCalibrationErrorX /= numSamples;
+  GyroCalibrationErrorY /= numSamples;
+  GyroCalibrationErrorZ /= numSamples;
 
   // Print calibration results
   Serial.print("Calibration done");
   Serial.print("Acc Errors: ");
-  Serial.print(AccErrorX);
+  Serial.print(AccCalibrationErrorX);
   Serial.print(" ");
-  Serial.print(AccErrorY);
+  Serial.print(AccCalibrationErrorY);
   Serial.print(" ");
-  Serial.print(AccErrorZ);
+  Serial.print(AccCalibrationErrorZ);
 
   Serial.print("Gyro Errors: ");
-  Serial.print(GyroErrorX);
+  Serial.print(GyroCalibrationErrorX);
   Serial.print(" ");
-  Serial.print(GyroErrorY);
+  Serial.print(GyroCalibrationErrorY);
   Serial.print(" ");
-  Serial.print(GyroErrorZ);
+  Serial.print(GyroCalibrationErrorZ);
 }
 
 
@@ -90,9 +90,9 @@ std::tuple<float, float, float>  MPU6050::gyro_read(void){
   Gz=(float)GyroZ/LSB_sense;
 
   // Subtract the gyro calibration errors
-  Gx = Gx - GyroErrorX;
-  Gy = Gy - GyroErrorY;
-  Gz = Gz - GyroErrorZ;
+  Gx = Gx - GyroCalibrationErrorX;
+  Gy = Gy - GyroCalibrationErrorY;
+  Gz = Gz - GyroCalibrationErrorZ;
   return std::make_tuple(Gx, Gy, Gz);
 }
 
@@ -111,9 +111,9 @@ std::tuple<float, float, float>  MPU6050::acc_read(void){
   Az = (float)rawZ / 8192.0;
   
   // Subtract the accelerometer calibration errors
-  Ax = Ax - AccErrorX;
-  Ay = Ay - AccErrorY;
-  Az = Az - AccErrorZ;
+  Ax = Ax - AccCalibrationErrorX;
+  Ay = Ay - AccCalibrationErrorY;
+  Az = Az - AccCalibrationErrorZ;
   return std::make_tuple(Ax, Ay, Az);
 }
 

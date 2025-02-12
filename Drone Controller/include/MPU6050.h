@@ -13,8 +13,8 @@ class MPU6050{
     float Ax, Ay, Az;
     float Gx, Gy, Gz;
     
-    float AccErrorX, AccErrorY, AccErrorZ = 0.0;
-    float GyroErrorX, GyroErrorY, GyroErrorZ = 0.0;
+    float AccCalibrationErrorX, AccCalibrationErrorY, AccCalibrationErrorZ = 0.0;
+    float GyroCalibrationErrorX, GyroCalibrationErrorY, GyroCalibrationErrorZ = 0.0;
 };
 
 
