@@ -1,8 +1,20 @@
-#include <MPU6050.h>
-#include <constants.h>
+#include <Arduino.h>
 #include <Wire.h>
+#include <tuple>
 
-void MPU6050::init(void) { 
+#include "MPU6050.h"
+#include "constants.h"
+
+MPU6050::MPU6050() {
+  Ax_cal = 0;
+  Ay_cal = 0;
+  Az_cal = 0;
+  Gx_cal = 0;
+  Gy_cal = 0;
+  Gz_cal = 0;
+}
+
+void MPU6050::init() { 
   Wire.beginTransmission(0x68); // MPU6050 I2C address
   Wire.write(0x6B);  // Power management register
   Wire.write(0x00);  // Wake up MPU6050
@@ -20,100 +32,138 @@ void MPU6050::init(void) {
   Wire.write(0x08); // Set range (65.5 LSB/deg/s)
   Wire.endTransmission();
 
-  // Configure Accelerometer (±4g range)
+  // Configure Accelerometer (±2g range)
   Wire.beginTransmission(0x68);
   Wire.write(0x1C); // Accel config register
-  Wire.write(0x08); // Set range (8192 LSB/g)
+  Wire.write(0x00); // Set range (16384 LSB/g)
   Wire.endTransmission();
-
-  //calibrate();
+  
+  calibrate();
 }
 
 void MPU6050::calibrate() {
   //calibration sequence
-  const int numSamples = 1000; // Number of samples to average
-
+  
+  float_t sumAx = 0, sumAy = 0, sumAz = 0;
+  float_t sumGx = 0, sumGy = 0, sumGz = 0;
    // Collect accelerometer and gyro data to compute offsets
-   for (int i = 0; i < numSamples; i++) {
-    auto [ax, ay, az] = acc_read();  // Replace with your accelerometer read function
-    auto [gx, gy, gz] = gyro_read();     // Replace with your gyroscope read function
-
-    // Sum the errors for each axis
-    AccCalibrationErrorX += ax;
-    AccCalibrationErrorY += ay;
-    AccCalibrationErrorZ += az;
-
-    GyroCalibrationErrorX += gx;
-    GyroCalibrationErrorY += gy;
-    GyroCalibrationErrorZ += gz;
+   for (int i = 0; i < calibrationSamples; i++) {
+    //auto [ax, ay, az] = acc_read();  // Replace with your accelerometer read function
+    //auto [gx, gy, gz] = gyro_read();     // Replace with your gyroscope read function
+    auto [ax, ay, az, gx, gy, gz] = read();
     
-    delay(1); // Small delay between readings
+    Serial.print("Acc: ");
+    Serial.print(ax); Serial.print(", ");
+    Serial.print(ay); Serial.print(", ");
+    Serial.println(az);
+
+    Serial.print("Gyro: ");
+    Serial.print(gx); Serial.print(", ");
+    Serial.print(gy); Serial.print(", ");
+    Serial.println(gz); 
+ 
+    // Sum the errors for each axis
+    sumAx += ax;
+    sumAy += ay;
+    sumAz += az;
+
+    sumGx += gx;
+    sumGy += gy;
+    sumGz += gz;
+    
+    
+    Serial.print("Sum of Acc: ");
+    Serial.print(sumAx); Serial.print(", ");
+    Serial.print(sumAy); Serial.print(", ");
+    Serial.println(sumAz);
+
+    Serial.print("Sum of Gyro: ");
+    Serial.print(sumGx); Serial.print(", ");
+    Serial.print(sumGy); Serial.print(", ");
+    Serial.println(sumGz);
+
+    delay(10); // Small delay between readings
   }
 
   // Calculate average errors
-  AccCalibrationErrorX /= numSamples;
-  AccCalibrationErrorY /= numSamples;
-  AccCalibrationErrorZ /= numSamples;
-  GyroCalibrationErrorX /= numSamples;
-  GyroCalibrationErrorY /= numSamples;
-  GyroCalibrationErrorZ /= numSamples;
+  Ax_cal = sumAx / calibrationSamples;
+  Ay_cal = sumAy / calibrationSamples;
+  Az_cal = sumAz / calibrationSamples;
+  Gx_cal = sumGx / calibrationSamples;
+  Gy_cal = sumGy / calibrationSamples;
+  Gz_cal = sumGz / calibrationSamples;
 
   // Print calibration results
-  Serial.print("Calibration done");
+  Serial.println("Calibration done");
   Serial.print("Acc Errors: ");
-  Serial.print(AccCalibrationErrorX);
+  Serial.print(Ax_cal);
   Serial.print(" ");
-  Serial.print(AccCalibrationErrorY);
+  Serial.print(Ay_cal);
   Serial.print(" ");
-  Serial.print(AccCalibrationErrorZ);
+  Serial.println(Az_cal);
 
   Serial.print("Gyro Errors: ");
-  Serial.print(GyroCalibrationErrorX);
+  Serial.print(Gx_cal);
   Serial.print(" ");
-  Serial.print(GyroCalibrationErrorY);
+  Serial.print(Gy_cal);
   Serial.print(" ");
-  Serial.print(GyroCalibrationErrorZ);
+  Serial.println(Gz_cal);
 }
 
+std::tuple<float, float, float, float, float, float>  MPU6050::read(){
+  Wire.beginTransmission(0x68);
+  Wire.write(0x3B); // Starting register for accelerometer data
+  Wire.endTransmission(false);
+  
+  Wire.requestFrom(0x68, 14); // Request 14 bytes
+  int16_t rawAx=Wire.read()<<8 | Wire.read();
+  int16_t rawAy=Wire.read()<<8 | Wire.read();
+  int16_t rawAz=Wire.read()<<8 | Wire.read();
+  int16_t temp=Wire.read()<<8 | Wire.read();
+  int16_t rawGx=Wire.read()<<8 | Wire.read();
+  int16_t rawGy=Wire.read()<<8 | Wire.read();
+  int16_t rawGz=Wire.read()<<8 | Wire.read();
 
-std::tuple<float, float, float>  MPU6050::gyro_read(void){
+  float_t Ax = (float)(rawAx) / LSB_acc - Ax_cal; // convert to G
+  float_t Ay = (float)(rawAy) / LSB_acc - Ay_cal;
+  float_t Az = (float)(rawAz) / LSB_acc - Az_cal;
+  float_t Gx = (float)(rawGx) / LSB_gyr - Gx_cal;
+  float_t Gy = (float)(rawGy) / LSB_gyr - Gy_cal;
+  float_t Gz = (float)(rawGz) / LSB_gyr - Gz_cal;
+
+  return std::make_tuple(Ax, Ay, Az, Gx, Gy, Gz);
+}
+
+std::tuple<float, float, float>  MPU6050::gyro_read(){
   Wire.beginTransmission(0x68);
   Wire.write(0x43); // Starting register for gyro readings
   Wire.endTransmission(false); 
 
   Wire.requestFrom(0x68,6);// Request 6 bytes
-  int16_t GyroX=Wire.read()<<8 | Wire.read();
-  int16_t GyroY=Wire.read()<<8 | Wire.read();
-  int16_t GyroZ=Wire.read()<<8 | Wire.read();
-  Gx=(float)GyroX/LSB_sense;
-  Gy=(float)GyroY/LSB_sense;
-  Gz=(float)GyroZ/LSB_sense;
-
-  // Subtract the gyro calibration errors
-  Gx = Gx - GyroCalibrationErrorX;
-  Gy = Gy - GyroCalibrationErrorY;
-  Gz = Gz - GyroCalibrationErrorZ;
+  int16_t rawGx=Wire.read()<<8 | Wire.read();
+  int16_t rawGy=Wire.read()<<8 | Wire.read();
+  int16_t rawGz=Wire.read()<<8 | Wire.read();
+  
+  float Gx = (float)(rawGx) / LSB_gyr - Gx_cal;
+  float Gy = (float)(rawGy) / LSB_gyr - Gy_cal;
+  float Gz = (float)(rawGz) / LSB_gyr - Gz_cal;
   return std::make_tuple(Gx, Gy, Gz);
 }
 
 
-std::tuple<float, float, float>  MPU6050::acc_read(void){
+std::tuple<float, float, float>  MPU6050::acc_read(){
   Wire.beginTransmission(0x68);
   Wire.write(0x3B); // Starting register for accelerometer data
   Wire.endTransmission(false);
 
   Wire.requestFrom(0x68, 6); // Request 6 bytes
-  int16_t rawX=Wire.read()<<8 | Wire.read();
-  int16_t rawY=Wire.read()<<8 | Wire.read();
-  int16_t rawZ=Wire.read()<<8 | Wire.read();
-  Ax = (float)rawX / 8192.0; // Convert to g (assuming ±4g range)
-  Ay = (float)rawY / 8192.0;
-  Az = (float)rawZ / 8192.0;
-  
-  // Subtract the accelerometer calibration errors
-  Ax = Ax - AccCalibrationErrorX;
-  Ay = Ay - AccCalibrationErrorY;
-  Az = Az - AccCalibrationErrorZ;
+  int16_t rawAx=Wire.read()<<8 | Wire.read();
+  int16_t rawAy=Wire.read()<<8 | Wire.read();
+  int16_t rawAz=Wire.read()<<8 | Wire.read();
+
+  float Ax = (float)(rawAx) / LSB_acc - Ax_cal; // convert to G
+  float Ay = (float)(rawAy) / LSB_acc - Ay_cal;
+  float Az = (float)(rawAz) / LSB_acc - Az_cal;
   return std::make_tuple(Ax, Ay, Az);
 }
 
