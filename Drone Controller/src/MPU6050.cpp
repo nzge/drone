@@ -41,15 +41,12 @@ void MPU6050::init() {
   calibrate();
 }
 
+//calibration sequence  
 void MPU6050::calibrate() {
-  //calibration sequence
-  
   float_t sumAx = 0, sumAy = 0, sumAz = 0;
   float_t sumGx = 0, sumGy = 0, sumGz = 0;
-   // Collect accelerometer and gyro data to compute offsets
-   for (int i = 0; i < calibrationSamples; i++) {
-    //auto [ax, ay, az] = acc_read();  // Replace with your accelerometer read function
-    //auto [gx, gy, gz] = gyro_read();     // Replace with your gyroscope read function
+  // Collect accelerometer and gyro data to compute offsets
+  for (int i = 0; i < calibrationSamples; i++) {
     auto [ax, ay, az, gx, gy, gz] = read();
     
     Serial.print("Acc: ");
@@ -66,11 +63,9 @@ void MPU6050::calibrate() {
     sumAx += ax;
     sumAy += ay;
     sumAz += az;
-
     sumGx += gx;
     sumGy += gy;
     sumGz += gz;
-    
     
     Serial.print("Sum of Acc: ");
     Serial.print(sumAx); Serial.print(", ");
@@ -88,7 +83,7 @@ void MPU6050::calibrate() {
   // Calculate average errors
   Ax_cal = sumAx / calibrationSamples;
   Ay_cal = sumAy / calibrationSamples;
-  Az_cal = sumAz / calibrationSamples;
+  Az_cal = (sumAz / calibrationSamples) - 1; // Subtract 1g from Z axis
   Gx_cal = sumGx / calibrationSamples;
   Gy_cal = sumGy / calibrationSamples;
   Gz_cal = sumGz / calibrationSamples;
